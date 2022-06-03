@@ -1,0 +1,104 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tester-configmap
+  labels:
+    app: tester
+    component: ue
+data:
+  config.yml: |
+    gnodeb:
+      controlif:
+        ip: "127.0.0.1"
+        port: 9487
+      dataif:
+        ip: "10.200.200.2"
+        port: 2152
+      plmnlist:
+        mcc: "208"
+        mnc: "93"
+        tac: "000001"
+        gnbid: "000001"
+      slicesupportlist:
+        sst: "01"
+        sd: "010203"
+    ue:
+      msin: "0000000003"
+      key: "8baf473f2f8fd09487cccbd7097c6862"
+      opc: "8e27b6af0e692e750f32667a3b14605d"
+      amf: "8000"
+      sqn: "0000000"
+      dnn: "internet"
+      hplmn:
+        mcc: "208"
+        mnc: "93"
+      snssai:
+        sst: 01
+        sd: "010203"
+
+    amfif:
+      ip: "10.43.0.212"
+      port: 38412
+    log:
+      level: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: release-name-tester-ue
+  labels:
+    app.kubernetes.io/name: tester
+    app.kubernetes.io/instance: release-name
+    app: tester 
+    component: ue
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tester
+      app.kubernetes.io/instance: release-name
+      app: tester
+      component: ue
+  replicas: 1
+  template:
+    metadata:
+      volumes:
+      - name: datadir
+        persistentVolumeClaim:
+          claimName: datadir-mongodb-0
+      annotations:
+        cni.projectcalico.org/ipAddrs: "[\"10.233.103.85\"]"
+      labels:
+        app.kubernetes.io/name: tester
+        app.kubernetes.io/instance: release-name
+        app: tester
+        component: ue
+    spec:
+      containers:
+      - image: baleeiro17/my5gtester 
+        name: tester
+        ports:
+        - name: gnb-ue
+          containerPort: 4997
+          protocol: UDP
+        securityContext:
+          capabilities:
+            add: ["NET_ADMIN"]
+        #command: ["./app"]
+        command: ["tail"]
+        args: ["-f", "/etc/passwd"]
+        #args: ["gnb"]
+        #args: ["ue-latency-interval", "-t", "20"]
+        #args: ["amf-load-loop", "-n", "1", "-t", "40"]
+        volumeMounts:
+        - mountPath: /workspace/my5G-RANTester/config
+          name: tester-volume
+        resources:
+            limits:
+              cpu: 400m
+              memory: 400Mi
+            requests:
+              cpu: 400m
+              memory: 400Mi
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
